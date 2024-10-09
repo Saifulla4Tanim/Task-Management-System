@@ -1,0 +1,174 @@
+#!/bin/bash
+
+# Task Management System
+# Author: Your Name
+# Date: Today's Date
+
+# Array to store users (name as key, id as value)
+declare -A users
+
+# Array to store tasks and their statuses
+declare -a tasks
+declare -a task_status
+
+# Function to display the main menu
+function main_menu {
+    while true; do
+        choice=$(dialog --title "Task Management System" --menu "Select an option:" 15 50 4 \
+            1 "User Registration" \
+            2 "User Login" \
+            3 "Show Current Date" \
+            4 "View All Users" \
+            5 "Exit" \
+            3>&1 1>&2 2>&3) || break
+
+        case $choice in
+            1) user_registration ;;
+            2) user_login ;;
+            3) show_current_date ;;
+            4) view_all_users ;;
+            5) exit 0 ;;
+            *) dialog --msgbox "Invalid choice, please try again." 5 40 ;;
+        esac
+    done
+}
+
+# Function to register a new user
+function user_registration {
+    name=$(dialog --inputbox "Enter your name:" 8 40 3>&1 1>&2 2>&3)
+
+    if [[ -z "$name" ]]; then
+        dialog --msgbox "Name cannot be empty!" 5 40
+        return
+    fi
+
+    users["$name"]="$name"  # Storing the name as both key and value
+    dialog --msgbox "User '$name' registered successfully!" 5 40
+}
+
+# Function to login a user
+function user_login {
+    name=$(dialog --inputbox "Enter your name to login:" 8 40 3>&1 1>&2 2>&3)
+
+    if [[ -z "${users[$name]}" ]]; then
+        dialog --msgbox "User not found!" 5 40
+        return
+    fi
+
+    logged_in_user="$name"
+    dialog --msgbox "Welcome, $logged_in_user!" 5 40
+    task_management_menu
+}
+
+# Function to show the current date
+function show_current_date {
+    current_date=$(date '+%Y-%m-%d')
+    dialog --msgbox "Current Date: $current_date" 5 40
+}
+
+# Function to view all registered users
+function view_all_users {
+    user_list=""
+    for user in "${!users[@]}"; do
+        user_list+="$user\n"
+    done
+    dialog --msgbox "Registered Users:\n$user_list" 15 50
+}
+
+# Function to display task management menu
+function task_management_menu {
+    while true; do
+        choice=$(dialog --title "Task Management System" --menu "Select an option:" 15 50 3 \
+            1 "Create Task" \
+            2 "Manage Tasks" \
+            3 "View Tasks" \
+            4 "Logout" \
+            3>&1 1>&2 2>&3) || break
+
+        case $choice in
+            1) create_task ;;
+            2) manage_tasks ;;
+            3) view_tasks ;;
+            4) logged_in_user="" ; dialog --msgbox "Logged out!" 5 40; break ;;
+            *) dialog --msgbox "Invalid choice, please try again." 5 40 ;;
+        esac
+    done
+}
+
+# Function to create a task
+function create_task {
+    if [[ -z "$logged_in_user" ]]; then
+        dialog --msgbox "Please login to create a task." 5 40
+        return
+    fi
+
+    description=$(dialog --inputbox "Enter task description:" 8 40 3>&1 1>&2 2>&3)
+    tasks+=("$description")
+    task_status+=("pending")
+    dialog --msgbox "Task '$description' created successfully!" 5 40
+}
+
+# Function to manage tasks
+function manage_tasks {
+    if [[ -z "$logged_in_user" ]]; then
+        dialog --msgbox "Please login to manage tasks." 5 40
+        return
+    fi
+
+    task_list=$(printf "%s\n" "${tasks[@]}" | nl -w2 -s'. ')
+    task_number=$(dialog --inputbox "Select a task to manage:\n$task_list" 15 50 3>&1 1>&2 2>&3)
+
+    if [[ $task_number -lt 1 || $task_number -gt ${#tasks[@]} ]]; then
+        dialog --msgbox "Invalid task number." 5 40
+        return
+    fi
+
+    action=$(dialog --menu "Choose an option:" 15 50 3 \
+        1 "Update Task" \
+        2 "Delete Task" \
+        3 "Change Status" \
+        4 "View Task Status" \
+        3>&1 1>&2 2>&3)
+
+    case $action in
+        1)
+            new_description=$(dialog --inputbox "Enter new task description:" 8 40 3>&1 1>&2 2>&3)
+            tasks[$((task_number - 1))]="$new_description"
+            dialog --msgbox "Task updated!" 5 40
+            ;;
+        2)
+            unset 'tasks[$((task_number - 1))]'
+            unset 'task_status[$((task_number - 1))]'
+            dialog --msgbox "Task deleted!" 5 40
+            ;;
+        3)
+            new_status=$(dialog --inputbox "Choose status (pending/in progress/completed):" 8 40 3>&1 1>&2 2>&3)
+            task_status[$((task_number - 1))]="$new_status"
+            dialog --msgbox "Task status updated!" 5 40
+            ;;
+        4)
+            dialog --msgbox "Current status: ${task_status[$((task_number - 1))]}" 5 40
+            ;;
+        *)
+            dialog --msgbox "Invalid choice!" 5 40
+            ;;
+    esac
+}
+
+# Function to view tasks
+function view_tasks {
+    if [[ -z "$logged_in_user" ]]; then
+        dialog --msgbox "Please login to view tasks." 5 40
+        return
+    fi
+
+    task_list=""
+    for i in "${!tasks[@]}"; do
+        task_list+="$((i + 1)). ${tasks[$i]} [${task_status[$i]}]\n"
+    done
+    dialog --msgbox "Current Tasks:\n$task_list" 15 50
+}
+
+# Run the main menu
+main_menu
+
